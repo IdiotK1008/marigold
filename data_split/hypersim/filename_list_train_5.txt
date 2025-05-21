@@ -1,0 +1,5 @@
+ai_001_001/rgb_cam_00_fr0000.png ai_001_001/depth_plane_cam_00_fr0000.png
+ai_001_002/rgb_cam_00_fr0007.png ai_001_002/depth_plane_cam_00_fr0007.png
+ai_001_005/rgb_cam_00_fr0036.png ai_001_005/depth_plane_cam_00_fr0036.png
+ai_001_006/rgb_cam_02_fr0086.png ai_001_006/depth_plane_cam_02_fr0086.png
+ai_002_002/rgb_cam_00_fr0073.png ai_002_002/depth_plane_cam_00_fr0073.png

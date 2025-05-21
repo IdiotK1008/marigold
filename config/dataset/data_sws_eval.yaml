@@ -1,0 +1,7 @@
+name: synwoodscape
+disp_name: synwoodscape_eval
+dir: SynWoodScape
+filenames: data_split/sws/filename_list_eval.txt
+resize_to_hw:
+- 480
+- 640

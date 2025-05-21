@@ -32,6 +32,7 @@ import torch
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision.transforms import InterpolationMode, Resize
+import yaml
 
 from src.util.depth_transform import DepthNormalizerBase
 
@@ -117,6 +118,13 @@ class BaseDepthDataset(Dataset):
         rasters, other = self._get_data_item(index)
         if DatasetMode.TRAIN == self.mode:
             rasters = self._training_preprocess(rasters)
+            # Resize
+        if self.resize_to_hw is not None:
+            resize_transform = Resize(
+                size=self.resize_to_hw, interpolation=InterpolationMode.NEAREST_EXACT
+            )
+            # rasters = {k: resize_transform(v) for k, v in rasters.items()}
+            rasters = {k: self._resize_camera_data(v, rasters["rgb_int"]) if k == "camera" else resize_transform(v) for k, v in rasters.items()}
         # merge
         outputs = rasters
         outputs.update(other)
@@ -145,9 +153,61 @@ class BaseDepthDataset(Dataset):
                 rasters["depth_filled_linear"]
             ).clone()
 
+        # Camera data
+        rasters["camera"] = self._get_camera_data(path = rgb_rel_path)
+
         other = {"index": index, "rgb_relative_path": rgb_rel_path}
 
         return rasters, other
+    
+    def _get_camera_data(self, path):
+        if self.disp_name.startswith("kitti360"):
+            # Read camera data
+            camera_path = self.dataset_dir.replace("data_2d_raw", "calibration")
+            if "image_02" in path:
+                camera_path = os.path.join(camera_path, "image_02.yaml")
+            elif "image_03" in path:
+                camera_path = os.path.join(camera_path, "image_03.yaml")
+            else:
+                print("path: ", path)
+                raise NotImplementedError
+            with open(camera_path, "r") as f:
+                camera_data_all = yaml.safe_load(f)
+            camera_data = [camera_data_all["projection_parameters"]["gamma1"], camera_data_all["projection_parameters"]["gamma2"]]
+        elif self.disp_name.startswith("synwoodscape"):
+            sws_camera = {
+                "FV": [772.0, 771.8, 0.33, -3.55],
+                "MVL": [772.0, 771.9, 1.185, -3.37],
+                "MVR": [772.0, 771.6, 0.384, -0.461],
+                "RV": [772.0, 771.7, 2.86472, -2.06627],
+            }
+            if "FV" in path:
+                camera_data = [772.0, 771.8]
+            elif "MVL" in path:
+                camera_data = [772.0, 771.9]
+            elif "MVR" in path:
+                camera_data = [772.0, 771.6]
+            elif "RV" in path:
+                camera_data = [772.0, 771.7]
+            else:
+                print("path: ", path)
+                raise NotImplementedError
+        else:
+            camera_data = [0.0, 0.0]
+        camera_data = torch.tensor(camera_data).float() # [2]
+        return camera_data
+    
+    def _resize_camera_data(self, camera_data, rgb_int):
+        if camera_data is not None:
+            new_height = self.resize_to_hw[0]
+            new_width = self.resize_to_hw[1]
+            old_height = rgb_int.shape[1]
+            old_width = rgb_int.shape[2]
+            if old_height != new_height or old_width != new_width:
+                # Resize camera data
+                camera_data[0] = camera_data[0] * new_width / old_width
+                camera_data[1] = camera_data[1] * new_height / old_height
+        return camera_data
 
     def _load_rgb_data(self, rgb_rel_path):
         # Read RGB data
@@ -225,6 +285,15 @@ class BaseDepthDataset(Dataset):
         if self.augm_args is not None:
             rasters = self._augment_data(rasters)
 
+        # log depth: log(d_r/d_min)/log(d_max/d_min)
+        log_max = 80.0
+        log_min = 0.5
+        rasters["depth_log_raw"] = rasters["depth_filled_linear"].clone()
+        rasters["depth_log_raw"] = torch.clamp(
+            rasters["depth_log_raw"], min=log_min, max=log_max
+        )
+        rasters["depth_log_raw"] = torch.log(rasters["depth_log_raw"] / log_min) / torch.log(torch.tensor(log_max / log_min))
+
         # Normalization
         rasters["depth_raw_norm"] = self.depth_transform(
             rasters["depth_raw_linear"], rasters["valid_mask_raw"]
@@ -232,6 +301,26 @@ class BaseDepthDataset(Dataset):
         rasters["depth_filled_norm"] = self.depth_transform(
             rasters["depth_filled_linear"], rasters["valid_mask_filled"]
         ).clone()
+        rasters["depth_log_norm"] = self.depth_transform(
+            rasters["depth_log_raw"], rasters["valid_mask_filled"]
+        ).clone()
+
+        # one over minmax mode
+        rasters["valid_mask_one_over"] = torch.logical_and(
+            rasters["depth_raw_linear"] > 0.5, rasters["depth_raw_linear"] < 80.0
+        ).bool()
+        rasters["depth_one_over"] = 1.0 / torch.clamp(
+            rasters["depth_raw_linear"], 0.5, 80.0
+        )
+        '''rasters["depth_one_over_norm"] = self.depth_transform(
+            rasters["depth_one_over"], rasters["valid_mask_one_over"]
+        ).clone()'''
+        # fixer normalize
+        rasters["depth_one_over_norm"] = rasters["depth_one_over"].clone()
+        fixed_min = 1.0 / 80.0
+        fixed_max = 1.0 / 0.5
+        rasters["depth_one_over_norm"] = (rasters["depth_one_over_norm"] - fixed_min) / (fixed_max - fixed_min)
+        rasters["depth_one_over_norm"] = rasters["depth_one_over_norm"] * 2.0 - 1.0 # [-1, 1]
 
         # Set invalid pixel to far plane
         if self.move_invalid_to_far_plane:
@@ -239,17 +328,20 @@ class BaseDepthDataset(Dataset):
                 rasters["depth_filled_norm"][~rasters["valid_mask_filled"]] = (
                     self.depth_transform.norm_max
                 )
+                rasters["depth_one_over_norm"][~rasters["valid_mask_one_over"]] = 1.0
             else:
                 rasters["depth_filled_norm"][~rasters["valid_mask_filled"]] = (
                     self.depth_transform.norm_min
                 )
+                rasters["depth_one_over_norm"][~rasters["valid_mask_one_over"]] = -1.0
 
         # Resize
         if self.resize_to_hw is not None:
             resize_transform = Resize(
                 size=self.resize_to_hw, interpolation=InterpolationMode.NEAREST_EXACT
             )
-            rasters = {k: resize_transform(v) for k, v in rasters.items()}
+            # rasters = {k: resize_transform(v) for k, v in rasters.items()}
+            rasters = {k: self._resize_camera_data(v, rasters["rgb_int"]) if k == "camera" else resize_transform(v) for k, v in rasters.items()}
 
         return rasters
 
@@ -257,7 +349,8 @@ class BaseDepthDataset(Dataset):
         # lr flipping
         lr_flip_p = self.augm_args.lr_flip_p
         if random.random() < lr_flip_p:
-            rasters_dict = {k: v.flip(-1) for k, v in rasters_dict.items()}
+            # rasters_dict = {k: v.flip(-1) for k, v in rasters_dict.items()}
+            rasters_dict = {k: v.flip(-1) if k != "camera" else v for k, v in rasters_dict.items()}
 
         return rasters_dict
 

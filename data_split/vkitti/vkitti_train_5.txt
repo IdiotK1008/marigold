@@ -1,0 +1,5 @@
+rgb/Scene02/clone/frames/rgb/Camera_0/rgb_00000.jpg depth/Scene02/clone/frames/depth/Camera_0/depth_00000.png
+rgb/Scene02/morning/frames/rgb/Camera_0/rgb_00055.jpg depth/Scene02/morning/frames/depth/Camera_0/depth_00055.png
+rgb/Scene02/overcast/frames/rgb/Camera_0/rgb_00049.jpg depth/Scene02/overcast/frames/depth/Camera_0/depth_00049.png
+rgb/Scene02/sunset/frames/rgb/Camera_0/rgb_00044.jpg depth/Scene02/sunset/frames/depth/Camera_0/depth_00044.png
+rgb/Scene02/15-deg-left/frames/rgb/Camera_0/rgb_00103.jpg depth/Scene02/15-deg-left/frames/depth/Camera_0/depth_00103.png

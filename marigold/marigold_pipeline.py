@@ -148,6 +148,7 @@ class MarigoldPipeline(DiffusionPipeline):
     def __call__(
         self,
         input_image: Union[Image.Image, torch.Tensor],
+        camera: torch.Tensor,
         denoising_steps: Optional[int] = None,
         ensemble_size: int = 5,
         processing_res: Optional[int] = None,
@@ -228,6 +229,7 @@ class MarigoldPipeline(DiffusionPipeline):
         else:
             raise TypeError(f"Unknown input type: {type(input_image) = }")
         input_size = rgb.shape
+        # print(input_size)
         assert (
             4 == rgb.dim() and 3 == input_size[-3]
         ), f"Wrong input shape {input_size}, expected [1, rgb, H, W]"
@@ -248,6 +250,7 @@ class MarigoldPipeline(DiffusionPipeline):
         # ----------------- Predicting depth -----------------
         # Batch repeated input image
         duplicated_rgb = rgb_norm.expand(ensemble_size, -1, -1, -1)
+        # print("duplicate: ", duplicated_rgb.shape)
         single_rgb_dataset = TensorDataset(duplicated_rgb)
         if batch_size > 0:
             _bs = batch_size
@@ -274,6 +277,7 @@ class MarigoldPipeline(DiffusionPipeline):
             (batched_img,) = batch
             depth_pred_raw = self.single_infer(
                 rgb_in=batched_img,
+                camera=camera,
                 num_inference_steps=denoising_steps,
                 show_pbar=show_progress_bar,
                 generator=generator,
@@ -351,7 +355,7 @@ class MarigoldPipeline(DiffusionPipeline):
         else:
             raise RuntimeError(f"Unsupported scheduler type: {type(self.scheduler)}")
 
-    def encode_empty_text(self):
+    '''def encode_empty_text(self):
         """
         Encode text embedding for empty prompt
         """
@@ -364,12 +368,51 @@ class MarigoldPipeline(DiffusionPipeline):
             return_tensors="pt",
         )
         text_input_ids = text_inputs.input_ids.to(self.text_encoder.device)
+        print("empty text_ids: ", text_input_ids.shape)
         self.empty_text_embed = self.text_encoder(text_input_ids)[0].to(self.dtype)
+        print("empty text embed: ", self.empty_text_embed.shape)'''
+    
+    def encode_empty_text(self, camera_data=None):
+        """
+        Encode text embedding for empty prompt, handling batch input for camera_data (Tensor format).
+        """
+        # Determine batch size
+        batch_size = camera_data.size(0) if camera_data is not None else 1
+
+        # Initialize prompts as a list of empty strings
+        prompts = [""] * batch_size
+
+        # Generate prompts based on camera_data
+        if camera_data is not None:
+            for i in range(batch_size):
+                gamma1, gamma2 = camera_data[i]  # Extract gamma1 and gamma2 for the i-th sample
+                if gamma1 > 1e-5 and gamma2 > 1e-5:
+                    prompts[i] = f"Camera's gamma1 is {gamma1.item()} and camera's gamma2 is {gamma2.item()}"
+
+        # Tokenize the prompts
+        text_inputs = self.tokenizer(
+            prompts,
+            padding="max_length" if batch_size > 1 else "do_not_pad",  # Pad if batch_size > 1
+            max_length=self.tokenizer.model_max_length,
+            truncation=True,
+            return_tensors="pt",
+        )
+
+        # Move input_ids to the same device as the text encoder
+        text_input_ids = text_inputs.input_ids.to(self.text_encoder.device)
+
+        # Encode the text inputs
+        text_embeddings = self.text_encoder(text_input_ids)[0].to(self.dtype)
+
+        # Store the embeddings and return
+        self.empty_text_embed = text_embeddings
+        return text_embeddings
 
     @torch.no_grad()
     def single_infer(
         self,
         rgb_in: torch.Tensor,
+        camera: torch.Tensor,
         num_inference_steps: int,
         generator: Union[torch.Generator, None],
         show_pbar: bool,
@@ -391,13 +434,16 @@ class MarigoldPipeline(DiffusionPipeline):
         """
         device = self.device
         rgb_in = rgb_in.to(device)
+        camera = camera.to(device)
 
         # Set timesteps
         self.scheduler.set_timesteps(num_inference_steps, device=device)
         timesteps = self.scheduler.timesteps  # [T]
 
         # Encode image
+        # print("rgb_in: ", rgb_in.shape)
         rgb_latent = self.encode_rgb(rgb_in)
+        # print("rgb: ", rgb_latent.shape)
 
         # Initial depth map (noise)
         depth_latent = torch.randn(
@@ -408,11 +454,12 @@ class MarigoldPipeline(DiffusionPipeline):
         )  # [B, 4, h, w]
 
         # Batched empty text embedding
-        if self.empty_text_embed is None:
+        '''if self.empty_text_embed is None:
             self.encode_empty_text()
         batch_empty_text_embed = self.empty_text_embed.repeat(
             (rgb_latent.shape[0], 1, 1)
-        ).to(device)  # [B, 2, 1024]
+        ).to(device)  # [B, 2, 1024]'''
+        batch_empty_text_embed = self.encode_empty_text(camera_data=camera)
 
         # Denoising loop
         if show_pbar:
@@ -440,6 +487,7 @@ class MarigoldPipeline(DiffusionPipeline):
                 noise_pred, t, depth_latent, generator=generator
             ).prev_sample
 
+        # print("depth: ", depth_latent.shape)
         depth = self.decode_depth(depth_latent)
 
         # clip prediction

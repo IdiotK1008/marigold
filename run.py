@@ -22,13 +22,14 @@ import argparse
 import logging
 import os
 from glob import glob
+import time
 
 import numpy as np
 import torch
 from PIL import Image
 from tqdm.auto import tqdm
 
-from marigold import MarigoldPipeline
+from marigold.my_marigold_pipeline import MarigoldPipeline
 
 EXTENSION_LIST = [".jpg", ".jpeg", ".png"]
 
@@ -43,7 +44,7 @@ if "__main__" == __name__:
     parser.add_argument(
         "--checkpoint",
         type=str,
-        default="prs-eth/marigold-lcm-v1-0",
+        default="checkpoint/marigold-v1-0",
         help="Checkpoint path or hub name.",
     )
 
@@ -62,13 +63,13 @@ if "__main__" == __name__:
     parser.add_argument(
         "--denoise_steps",
         type=int,
-        default=None,
+        default=50,
         help="Diffusion denoising steps, more steps results in higher accuracy but slower inference speed. For the original (DDIM) version, it's recommended to use 10-50 steps, while for LCM 1-4 steps.",
     )
     parser.add_argument(
         "--ensemble_size",
         type=int,
-        default=5,
+        default=10,
         help="Number of predictions to be ensembled, more inference gives better results but runs slower.",
     )
     parser.add_argument(
@@ -116,7 +117,7 @@ if "__main__" == __name__:
     parser.add_argument(
         "--batch_size",
         type=int,
-        default=0,
+        default=1,
         help="Inference batch size. Default: 0 (will be set automatically).",
     )
     parser.add_argument(
@@ -227,6 +228,7 @@ if "__main__" == __name__:
     )
 
     # -------------------- Inference and saving --------------------
+    start_time = time.time()
     with torch.no_grad():
         os.makedirs(output_dir, exist_ok=True)
 
@@ -282,3 +284,9 @@ if "__main__" == __name__:
                     f"Existing file: '{colored_save_path}' will be overwritten"
                 )
             depth_colored.save(colored_save_path)
+
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    print(
+        f"Total time taken for inference: {elapsed_time:.6f} seconds ({n_images} images)"
+    )

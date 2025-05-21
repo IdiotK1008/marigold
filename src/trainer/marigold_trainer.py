@@ -223,6 +223,7 @@ class MarigoldTrainer:
                 # Get data
                 rgb = batch["rgb_norm"].to(device)
                 depth_gt_for_latent = batch[self.gt_depth_type].to(device)
+                camera = batch["camera"].to(device)
 
                 if self.gt_mask_type is not None:
                     valid_mask_for_latent = batch[self.gt_mask_type].to(device)
@@ -240,6 +241,7 @@ class MarigoldTrainer:
                     # Encode image
                     rgb_latent = self.model.encode_rgb(rgb)  # [B, 4, h, w]
                     # Encode GT depth
+                    # logging.debug(f"max depth_gt_for_latent: {depth_gt_for_latent.max()}")
                     gt_depth_latent = self.encode_depth(
                         depth_gt_for_latent
                     )  # [B, 4, h, w]
@@ -279,9 +281,10 @@ class MarigoldTrainer:
                 )  # [B, 4, h, w]
 
                 # Text embedding
-                text_embed = self.empty_text_embed.to(device).repeat(
+                text_embed = self.model.encode_empty_text(camera_data=camera)
+                '''text_embed = self.empty_text_embed.to(device).repeat(
                     (batch_size, 1, 1)
-                )  # [B, 77, 1024]
+                )  # [B, 77, 1024]'''
 
                 # Concat rgb and depth latents
                 cat_latents = torch.cat(
@@ -530,7 +533,8 @@ class MarigoldTrainer:
                 denoising_steps=self.cfg.validation.denoising_steps,
                 ensemble_size=self.cfg.validation.ensemble_size,
                 processing_res=self.cfg.validation.processing_res,
-                match_input_res=self.cfg.validation.match_input_res,
+                #match_input_res=self.cfg.validation.match_input_res,
+                match_input_res=True,
                 generator=generator,
                 batch_size=1,  # use batch size 1 to increase reproducibility
                 color_map=None,

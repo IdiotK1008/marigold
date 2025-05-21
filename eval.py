@@ -82,11 +82,17 @@ if "__main__" == __name__:
         required=True,
         help="Path to base data directory.",
     )
+    parser.add_argument(
+        "--use_abs",
+        type=bool,
+        default=False,
+        help="whether use abs depth.",
+    )
 
     # LS depth alignment
     parser.add_argument(
         "--alignment",
-        choices=[None, "least_square", "least_square_disparity"],
+        choices=[None, "least_square", "least_square_disparity", "fixed_min_max", "fixed_log"],
         default=None,
         help="Method to estimate scale and shift between predictions and ground truth.",
     )
@@ -163,12 +169,36 @@ if "__main__" == __name__:
         )
         pred_name = os.path.join(os.path.dirname(rgb_name), pred_basename)
         pred_path = os.path.join(prediction_dir, pred_name)
+
+        # load abs depth
+        if args.use_abs:
+            abs_pred_path = pred_path.replace(".npy", "_abs.npy")
+            abs_depth_pred = np.load(abs_pred_path)
+
+            # Evaluate (using CUDA if available)
+            sample_metric = []
+            depth_pred_ts = torch.from_numpy(abs_depth_pred).to(device)
+
+            for met_func in metric_funcs:
+                _metric_name = met_func.__name__
+                _metric = met_func(depth_pred_ts, depth_raw_ts, valid_mask_ts).item()
+                sample_metric.append(_metric.__str__())
+                metric_tracker.update(_metric_name, _metric)
+
+            # Save per-sample metric
+            with open(per_sample_filename, "a+") as f:
+                f.write(pred_name + ",")
+                f.write(",".join(sample_metric))
+                f.write("\n")
+
+            continue
+
         depth_pred = np.load(pred_path)
 
         if not os.path.exists(pred_path):
             logging.warn(f"Can't find prediction: {pred_path}")
             continue
-
+                
         # Align with GT using least square
         if "least_square" == alignment:
             depth_pred, scale, shift = align_depth_least_square(
@@ -199,6 +229,23 @@ if "__main__" == __name__:
                 disparity_pred, a_min=1e-3, a_max=None
             )  # avoid 0 disparity
             depth_pred = disparity2depth(disparity_pred)
+        elif "fixed_min_max" == alignment:
+            # fixed min max scaling
+            fixed_min = 1.0 / 80.0
+            fixed_max = 1.0 / 0.5
+            disparity_pred = depth_pred * (fixed_max - fixed_min) + fixed_min
+            # convert to depth
+            disparity_pred = np.clip(
+                disparity_pred, a_min=1e-3, a_max=None
+            )
+            depth_pred = disparity2depth(disparity_pred)
+        elif "fixed_log" == alignment:
+            # fixed log scaling
+            log_max = 80.0
+            log_min = 0.5
+
+            # resort from log space
+            depth_pred = log_min * np.exp(depth_pred * np.log(log_max / log_min))
 
         # Clip to dataset min max
         depth_pred = np.clip(

@@ -30,6 +30,8 @@ from .kitti_dataset import KITTIDataset
 from .nyu_dataset import NYUDataset
 from .scannet_dataset import ScanNetDataset
 from .vkitti_dataset import VirtualKITTIDataset
+from .kitti360_dataset import Kitti360Dataset
+from .synwoodscape_dataset import SynWoodScapeDataset
 
 
 dataset_name_class_dict = {
@@ -40,6 +42,8 @@ dataset_name_class_dict = {
     "eth3d": ETH3DDataset,
     "diode": DIODEDataset,
     "scannet": ScanNetDataset,
+    "kitti360": Kitti360Dataset,
+    "synwoodscape": SynWoodScapeDataset,
 }
 
 

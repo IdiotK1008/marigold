@@ -30,7 +30,7 @@ from PIL import Image
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
-from marigold import MarigoldPipeline
+from marigold.my_marigold_pipeline import MarigoldPipeline
 from src.util.seeding import seed_all
 from src.dataset import (
     BaseDepthDataset,
@@ -49,7 +49,7 @@ if "__main__" == __name__:
     parser.add_argument(
         "--checkpoint",
         type=str,
-        default="prs-eth/marigold-v1-0",
+        default="checkpoint/marigold-v1-0",
         help="Checkpoint path or hub name.",
     )
 
@@ -226,10 +226,12 @@ if "__main__" == __name__:
             rgb_int = batch["rgb_int"].squeeze().numpy().astype(np.uint8)  # [3, H, W]
             rgb_int = np.moveaxis(rgb_int, 0, -1)  # [H, W, 3]
             input_image = Image.fromarray(rgb_int)
+            #camera = batch["camera"]
 
             # Predict depth
             pipe_out = pipe(
                 input_image,
+                #camera=camera,
                 denoising_steps=denoise_steps,
                 ensemble_size=ensemble_size,
                 processing_res=processing_res,

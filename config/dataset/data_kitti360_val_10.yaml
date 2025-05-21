@@ -1,0 +1,7 @@
+name: kitti360
+disp_name: kitti360_val
+dir: KITTI360/data_2d_raw
+filenames: data_split/kitti360/filename_list_val_da_5_tmp.txt
+resize_to_hw:
+- 700
+- 700

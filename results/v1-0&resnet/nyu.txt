@@ -1,0 +1,10 @@
+Evaluation metrics:
+    of predictions: output/eval/nyu_test/prediction
+    on dataset: nyu_test_full
+    with samples in: data_split/nyu/labeled/filename_list_test.txt
+min_depth = 0.001
+max_depth = 10.0
+-----------------------  ---------------------------  -----------------  --------  -----  -------------------  -------------------  ------------------  ------------------  ----------
+abs_relative_difference  squared_relative_difference  rmse_linear        rmse_log  log10  delta1_acc           delta2_acc           delta3_acc          i_rmse              silog_rmse
+5.020116446582531        93.63602035039077            16.50520776763445  nan       nan    0.08256989336080868  0.10562755454102986  0.1340845419249365  106.36571334657346  nan
+-----------------------  ---------------------------  -----------------  --------  -----  -------------------  -------------------  ------------------  ------------------  ----------

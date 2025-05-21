@@ -1,0 +1,10 @@
+Evaluation metrics:
+    of predictions: output/eval/kitti_eigen_test/prediction
+    on dataset: kitti_eigen_test_full
+    with samples in: data_split/kitti/eigen_test_files_with_gt.txt
+min_depth = 1e-05
+max_depth = 80
+-----------------------  ---------------------------  ------------------  --------  -----  ------------------  ------------------  ------------------  -----------------  ----------
+abs_relative_difference  squared_relative_difference  rmse_linear         rmse_log  log10  delta1_acc          delta2_acc          delta3_acc          i_rmse             silog_rmse
+0.8316369263477544       9.835774219858548            12.829265390314468  nan       nan    0.3042524970892345  0.3448833065856308  0.4256034235122179  322.5405157927163  nan
+-----------------------  ---------------------------  ------------------  --------  -----  ------------------  ------------------  ------------------  -----------------  ----------

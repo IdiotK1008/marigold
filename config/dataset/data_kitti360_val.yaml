@@ -1,0 +1,4 @@
+name: kitti360
+disp_name: kitti360_train
+dir: KITTI360/data_2d_raw
+filenames: data_split/kitti360/filename_list_val.txt

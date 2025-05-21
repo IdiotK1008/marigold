@@ -73,6 +73,12 @@ if "__main__" == __name__:
                 f"scene_{row.camera_name}_geometry_hdf5",
                 f"frame.{row.frame_id:04d}.render_entity_id.hdf5",
             )
+
+            ###########
+            if not os.path.exists(os.path.join(dataset_dir, rgb_path)):
+                continue
+            ###########
+
             assert os.path.exists(os.path.join(dataset_dir, rgb_path))
             assert os.path.exists(os.path.join(dataset_dir, dist_path))
 

@@ -1,0 +1,3 @@
+2013_05_28_drive_0009_sync/image_03/data_rgb/0000007904.png 2013_05_28_drive_0009_sync/image_03/distancemap/0000007904_depth.npz
+2013_05_28_drive_0009_sync/image_03/data_rgb/0000002901.png 2013_05_28_drive_0009_sync/image_03/distancemap/0000002901_depth.npz
+2013_05_28_drive_0009_sync/image_03/data_rgb/0000008944.png 2013_05_28_drive_0009_sync/image_03/distancemap/0000008944_depth.npz

@@ -1,0 +1,10 @@
+Evaluation metrics:
+    of predictions: output/eval/kitti360/prediction
+    on dataset: kitti360_eval
+    with samples in: data_split/kitti360/filename_list_eval_da.txt
+min_depth = 1e-05
+max_depth = 65.0
+-----------------------  ---------------------------  ------------------  --------  -----  --------------------  --------------------  -------------------  ------------------  ----------
+abs_relative_difference  squared_relative_difference  rmse_linear         rmse_log  log10  delta1_acc            delta2_acc            delta3_acc           i_rmse              silog_rmse
+0.8152938666573739       18.52647372939706            26.330326870118963  nan       nan    0.010329983902882608  0.018205980577704395  0.02734667993089109  13.364343507165602  nan
+-----------------------  ---------------------------  ------------------  --------  -----  --------------------  --------------------  -------------------  ------------------  ----------
